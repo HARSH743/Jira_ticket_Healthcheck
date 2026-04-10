@@ -352,7 +352,7 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          jql: "assignee = currentUser() AND statusCategory != Done ORDER BY updated ASC",
+          jql: "assignee = currentUser() AND statusCategory != Done AND project in (BC, SIC) ORDER BY updated ASC",
           maxResults: 100,
           fields: ["summary", "status", "priority", "updated", "project", "comment"]
         })

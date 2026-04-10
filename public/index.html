@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Jira Dashboard — Harsh</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f4f0; --surface: #ffffff; --surface2: #f0efe9; --border: #e2e0d8;
+    --text: #1a1a18; --text2: #6b6a65; --text3: #9b9a95;
+    --accent: #e24b4a; --accent-bg: #fef2f2;
+    --blue: #185FA5; --blue-bg: #E6F1FB;
+    --amber: #854F0B; --amber-bg: #FAEEDA;
+    --purple: #3C3489; --purple-bg: #EEEDFE;
+    --green: #27500A; --green-bg: #EAF3DE;
+    --stale-bg: #fff5f5; --stale-hover: #ffe4e4;
+    --radius: 10px; --radius-sm: 6px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+  .header-left h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+  .header-left p { font-size: 13px; color: var(--text2); margin-top: 2px; }
+  .header-right { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { height: 36px; padding: 0 14px; font-size: 13px; font-weight: 500; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text2); transition: background 0.15s; font-family: inherit; }
+  .btn:hover { background: var(--surface2); color: var(--text); }
+  .btn-danger { background: var(--accent-bg); color: var(--accent); border-color: #fca5a5; }
+  .btn-danger:hover { background: #fee2e2; }
+  .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+  .metrics { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 12px; margin-bottom: 1.5rem; }
+  .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; }
+  .metric-label { font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .metric-value { font-size: 26px; font-weight: 600; color: var(--text); font-family: "Courier New", monospace; letter-spacing: -1px; }
+  .metric-value.danger { color: var(--accent); }
+  .metric-value.warn { color: var(--amber); }
+  .tabs { display: flex; gap: 4px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .tab { height: 34px; padding: 0 14px; font-size: 13px; font-weight: 500; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text2); transition: all 0.15s; font-family: inherit; }
+  .tab:hover { background: var(--surface2); }
+  .tab.active { background: var(--text); color: #fff; border-color: var(--text); }
+  .filters { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .filters input, .filters select { height: 36px; padding: 0 12px; font-size: 13px; font-family: inherit; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
+  .filters input { flex: 1; min-width: 200px; }
+  .filters input:focus, .filters select:focus { border-color: #9ca3af; }
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  thead th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  thead th.sortable { cursor: pointer; user-select: none; }
+  thead th.sortable:hover { color: var(--text); }
+  thead th.sort-asc::after { content: ' ↑'; opacity: 0.7; }
+  thead th.sort-desc::after { content: ' ↓'; opacity: 0.7; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td { background: #fafaf7; }
+  tbody tr.stale td { background: var(--stale-bg); }
+  tbody tr.stale:hover td { background: var(--stale-hover); }
+  tbody tr.row-expanded td { background: #f0f7ff !important; }
+  tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  .cmt-row td { padding: 0 !important; cursor: default; background: #f8fbff !important; border-bottom: 1px solid var(--border); }
+  .cmt-row:hover td { background: #f8fbff !important; }
+  .cmt-panel { display: none; padding: 14px 16px; }
+  .cmt-panel.open { display: block; }
+  .cmt-panel-header { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 10px; }
+  .cmt-entry { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 8px; }
+  .cmt-entry:last-child { margin-bottom: 0; }
+  .cmt-meta { display: flex; gap: 10px; margin-bottom: 5px; align-items: baseline; }
+  .cmt-author { font-size: 12px; font-weight: 600; }
+  .cmt-time { font-size: 11px; color: var(--text3); }
+  .cmt-body { font-size: 13px; color: var(--text2); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .cmt-none { font-size: 13px; color: var(--text3); font-style: italic; }
+  a.key-link { font-family: "Courier New", monospace; font-size: 12px; color: var(--blue); text-decoration: none; font-weight: 500; }
+  a.key-link:hover { text-decoration: underline; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px; }
+  .badge-todo { background: var(--blue-bg); color: var(--blue); }
+  .badge-progress { background: var(--amber-bg); color: var(--amber); }
+  .badge-review { background: var(--purple-bg); color: var(--purple); }
+  .stale-tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: var(--accent-bg); color: var(--accent); margin-left: 5px; text-transform: uppercase; letter-spacing: 0.04em; vertical-align: middle; }
+  .prio-high { color: #A32D2D; font-weight: 600; }
+  .prio-medium { color: var(--amber); font-weight: 500; }
+  .prio-low { color: var(--green); }
+  .age-stale { color: var(--accent); font-weight: 600; font-family: "Courier New", monospace; font-size: 12px; }
+  .age-ok { color: var(--text3); font-family: "Courier New", monospace; font-size: 12px; }
+  .snippet { font-size: 12px; color: var(--text3); font-style: italic; }
+  .snippet.live { color: var(--text2); font-style: normal; }
+  .expand-arrow { display: inline-block; font-size: 10px; color: var(--text3); margin-right: 5px; transition: transform 0.2s; }
+  .expand-arrow.open { transform: rotate(90deg); }
+  .state { text-align: center; padding: 3rem; color: var(--text2); font-size: 14px; }
+  .state .icon { font-size: 32px; margin-bottom: 12px; }
+  .state p { max-width: 460px; margin: 0 auto; line-height: 1.7; }
+  .footer-row { display: flex; justify-content: space-between; margin-top: 10px; flex-wrap: wrap; gap: 8px; }
+  .footer-row span { font-size: 12px; color: var(--text3); }
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; z-index: 9999; display: none; max-width: 360px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .toast.success { background: var(--green-bg); color: var(--green); border: 1px solid #97C459; display: block; }
+  .toast.error { background: var(--accent-bg); color: #791F1F; border: 1px solid #F09595; display: block; }
+  .toast.info { background: var(--blue-bg); color: #0C447C; border: 1px solid #85B7EB; display: block; }
+  @media (max-width: 800px) { .metrics { grid-template-columns: repeat(3, 1fr); } body { padding: 1rem; } }
+  @media (max-width: 500px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>Jira Dashboard</h1>
+    <p id="statusLine">Connecting...</p>
+  </div>
+  <div class="header-right">
+    <button class="btn" onclick="loadTasks()">↻ Refresh</button>
+    <button class="btn btn-danger" id="notifyBtn" onclick="sendEmail()">✉ Email stale tasks</button>
+  </div>
+</header>
+
+<div class="metrics">
+  <div class="metric"><div class="metric-label">Total open</div><div class="metric-value" id="m-total">—</div></div>
+  <div class="metric"><div class="metric-label">Stale (3+ days)</div><div class="metric-value danger" id="m-stale">—</div></div>
+  <div class="metric"><div class="metric-label">In progress</div><div class="metric-value warn" id="m-progress">—</div></div>
+  <div class="metric"><div class="metric-label">To do</div><div class="metric-value" id="m-todo">—</div></div>
+  <div class="metric"><div class="metric-label">No comments</div><div class="metric-value" id="m-nocomment">—</div></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="setTab('all',this)">All tasks</button>
+  <button class="tab" onclick="setTab('stale',this)">Stale only</button>
+  <button class="tab" onclick="setTab('no-comment',this)">No comments</button>
+  <button class="tab" onclick="setTab('in-progress',this)">In progress</button>
+</div>
+
+<div class="filters">
+  <input type="text" id="searchBox" placeholder="Search by key, summary or project..." oninput="applyFilters()"/>
+  <select id="statusFilter" onchange="applyFilters()">
+    <option value="">All statuses</option>
+    <option value="To Do">To Do</option>
+    <option value="In Progress">In Progress</option>
+    <option value="In Review">In Review</option>
+  </select>
+  <select id="projectFilter" onchange="applyFilters()"><option value="">All projects</option></select>
+  <select id="prioFilter" onchange="applyFilters()">
+    <option value="">All priorities</option>
+    <option value="Highest">Highest</option>
+    <option value="High">High</option>
+    <option value="Medium">Medium</option>
+    <option value="Low">Low</option>
+  </select>
+</div>
+
+<div class="table-wrap">
+  <div id="tableContainer">
+    <div class="state"><div class="icon">⏳</div><p>Loading your Jira tasks...</p></div>
+  </div>
+</div>
+
+<div class="footer-row">
+  <span id="resultCount"></span>
+  <span id="lastUpdated"></span>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  // All API calls go to our own server — no CORS issues
+  const API = "";  // same origin
+
+  let allTasks = [], filteredTasks = [], commentCache = {};
+  let activeTab = "all", sortCol = "updated", sortDir = "asc";
+  let expanded = new Set();
+
+  const days = d => Math.floor((Date.now() - new Date(d)) / 86400000);
+
+  function adf(body) {
+    if (!body) return "";
+    if (typeof body === "string") return body.replace(/<[^>]+>/g, "").trim();
+    const parts = [];
+    function walk(n) { if (!n) return; if (n.type === "text") parts.push(n.text || ""); (n.content || []).forEach(walk); }
+    walk(body);
+    return parts.join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  function setTab(tab, el) {
+    activeTab = tab;
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    el.classList.add("active");
+    applyFilters();
+  }
+
+  function applyFilters() {
+    const q = document.getElementById("searchBox").value.toLowerCase();
+    const st = document.getElementById("statusFilter").value;
+    const pr = document.getElementById("projectFilter").value;
+    const prio = document.getElementById("prioFilter").value;
+    filteredTasks = allTasks.filter(t => {
+      if (activeTab === "stale" && days(t.updated) < 3) return false;
+      if (activeTab === "no-comment" && t.commentCount > 0) return false;
+      if (activeTab === "in-progress" && !t.status.toLowerCase().includes("progress")) return false;
+      if (q && !t.summary.toLowerCase().includes(q) && !t.key.toLowerCase().includes(q) && !t.project.toLowerCase().includes(q)) return false;
+      if (st && t.status !== st) return false;
+      if (pr && t.project !== pr) return false;
+      if (prio && t.priority !== prio) return false;
+      return true;
+    });
+    filteredTasks.sort((a, b) => {
+      let av = (sortCol === "updated" || sortCol === "age") ? new Date(a.updated) : (a[sortCol] || "");
+      let bv = (sortCol === "updated" || sortCol === "age") ? new Date(b.updated) : (b[sortCol] || "");
+      return av < bv ? (sortDir === "asc" ? -1 : 1) : av > bv ? (sortDir === "asc" ? 1 : -1) : 0;
+    });
+    renderTable();
+    document.getElementById("resultCount").textContent = `Showing ${filteredTasks.length} of ${allTasks.length} tasks`;
+  }
+
+  function toggleSort(col) {
+    sortDir = sortCol === col ? (sortDir === "asc" ? "desc" : "asc") : (col === "updated" || col === "age" ? "desc" : "asc");
+    sortCol = col;
+    document.querySelectorAll("thead th.sortable").forEach(th => {
+      th.classList.remove("sort-asc", "sort-desc");
+      if (th.dataset.col === col) th.classList.add(sortDir === "asc" ? "sort-asc" : "sort-desc");
+    });
+    applyFilters();
+  }
+
+  function snippetHtml(key) {
+    const cached = commentCache[key];
+    if (cached === undefined) return '<span class="snippet">▶ click to expand</span>';
+    if (cached.length === 0) return '<span class="snippet">no comments yet</span>';
+    const last = cached[cached.length - 1];
+    const txt = last.text;
+    const short = txt.length > 65 ? txt.slice(0, 65) + "…" : txt;
+    return `<span class="snippet live" title="${txt.replace(/"/g,'&quot;')}"><strong>${last.author.split(" ")[0]}:</strong> ${short}</span>`;
+  }
+
+  function buildPanel(key) {
+    const cached = commentCache[key];
+    if (!cached) return '<div class="cmt-none">Loading...</div>';
+    if (cached.length === 0) return '<div class="cmt-none">No comments on this task yet.</div>';
+    const shown = cached.slice(-5).reverse();
+    return `<div class="cmt-panel-header">Last ${shown.length} comment${shown.length > 1 ? "s" : ""} (of ${cached.length})</div>` +
+      shown.map(c => `<div class="cmt-entry">
+        <div class="cmt-meta"><span class="cmt-author">${c.author}</span><span class="cmt-time">${new Date(c.created).toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span></div>
+        <div class="cmt-body">${c.text || "(empty)"}</div>
+      </div>`).join("");
+  }
+
+  function renderTable() {
+    const c = document.getElementById("tableContainer");
+    if (!filteredTasks.length) {
+      c.innerHTML = '<div class="state"><div class="icon">✅</div><p>No tasks match your current filters.</p></div>';
+      return;
+    }
+    const JIRA = "https://zenoti.atlassian.net";
+    const html = filteredTasks.map(t => {
+      const d = days(t.updated);
+      const stale = d >= 3;
+      const isOpen = expanded.has(t.key);
+      return `
+      <tr class="${stale ? "stale" : ""} ${isOpen ? "row-expanded" : ""}" onclick="toggleRow('${t.key}')">
+        <td style="width:105px"><a class="key-link" href="${JIRA}/browse/${t.key}" target="_blank" onclick="event.stopPropagation()">${t.key}</a></td>
+        <td style="width:22%" title="${t.summary.replace(/"/g,"&quot;")}">${t.summary}${stale ? '<span class="stale-tag">stale</span>' : ""}</td>
+        <td style="width:13%" title="${t.project}">${t.project}</td>
+        <td style="width:11%">${statusBadge(t.status)}</td>
+        <td style="width:8%">${prioSpan(t.priority)}</td>
+        <td style="width:11%">${new Date(t.updated).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"2-digit"})}</td>
+        <td style="width:5%"><span class="${stale ? "age-stale" : "age-ok"}">${d}d</span></td>
+        <td style="width:25%"><span class="expand-arrow ${isOpen ? "open" : ""}">▶</span>${snippetHtml(t.key)}</td>
+      </tr>
+      <tr class="cmt-row" id="cmt-row-${t.key}">
+        <td colspan="8"><div class="cmt-panel ${isOpen ? "open" : ""}" id="cmt-${t.key}">${isOpen ? buildPanel(t.key) : ""}</div></td>
+      </tr>`;
+    }).join("");
+
+    c.innerHTML = `<table>
+      <thead><tr>
+        <th class="sortable sort-asc" data-col="key" onclick="toggleSort('key')">Key</th>
+        <th>Summary</th>
+        <th class="sortable" data-col="project" onclick="toggleSort('project')">Project</th>
+        <th class="sortable" data-col="status" onclick="toggleSort('status')">Status</th>
+        <th>Priority</th>
+        <th class="sortable" data-col="updated" onclick="toggleSort('updated')">Updated</th>
+        <th class="sortable" data-col="age" onclick="toggleSort('age')">Age</th>
+        <th>Last comment</th>
+      </tr></thead>
+      <tbody>${html}</tbody>
+    </table>`;
+  }
+
+  function statusBadge(s) {
+    const sl = s.toLowerCase();
+    let cls = "badge-todo";
+    if (sl.includes("progress")) cls = "badge-progress";
+    else if (sl.includes("review")) cls = "badge-review";
+    return `<span class="badge ${cls}">${s}</span>`;
+  }
+
+  function prioSpan(p) {
+    if (!p) return '<span style="color:var(--text3)">—</span>';
+    const pl = p.toLowerCase();
+    const cls = (pl === "highest" || pl === "high") ? "prio-high" : pl === "medium" ? "prio-medium" : "prio-low";
+    return `<span class="${cls}">${p}</span>`;
+  }
+
+  async function toggleRow(key) {
+    const isOpen = expanded.has(key);
+    const panel = document.getElementById("cmt-" + key);
+    const row = document.querySelector(`tr[onclick="toggleRow('${key}')"]`);
+    const arrow = row ? row.querySelector(".expand-arrow") : null;
+
+    if (isOpen) {
+      expanded.delete(key);
+      panel.classList.remove("open");
+      if (arrow) arrow.classList.remove("open");
+      if (row) row.classList.remove("row-expanded");
+    } else {
+      expanded.add(key);
+      panel.classList.add("open");
+      if (arrow) arrow.classList.add("open");
+      if (row) row.classList.add("row-expanded");
+
+      if (commentCache[key] === undefined) {
+        panel.innerHTML = '<div class="cmt-none">Loading comments...</div>';
+        try {
+          const res = await fetch(`${API}/api/comments/${key}`);
+          const data = await res.json();
+          commentCache[key] = (data.comments || []).map(c => ({
+            author: c.author?.displayName || "Unknown",
+            created: c.created,
+            text: adf(c.body)
+          }));
+          const t = allTasks.find(x => x.key === key);
+          if (t) { t.commentCount = commentCache[key].length; }
+          panel.innerHTML = buildPanel(key);
+          const snippetEl = row ? row.querySelector(".snippet") : null;
+          if (snippetEl) snippetEl.outerHTML = snippetHtml(key);
+        } catch(e) {
+          panel.innerHTML = `<div class="cmt-none">Could not load comments: ${e.message}</div>`;
+        }
+      } else {
+        panel.innerHTML = buildPanel(key);
+      }
+    }
+  }
+
+  function updateMetrics(tasks) {
+    document.getElementById("m-total").textContent = tasks.length;
+    document.getElementById("m-stale").textContent = tasks.filter(t => days(t.updated) >= 3).length;
+    document.getElementById("m-progress").textContent = tasks.filter(t => t.status.toLowerCase().includes("progress")).length;
+    document.getElementById("m-todo").textContent = tasks.filter(t => /to do|open|backlog/i.test(t.status)).length;
+    document.getElementById("m-nocomment").textContent = tasks.filter(t => t.commentCount === 0).length;
+  }
+
+  async function loadTasks() {
+    document.getElementById("tableContainer").innerHTML = '<div class="state"><div class="icon">⏳</div><p>Fetching your Jira tasks...</p></div>';
+    ["m-total","m-stale","m-progress","m-todo","m-nocomment"].forEach(id => document.getElementById(id).textContent = "—");
+    expanded.clear(); commentCache = {};
+
+    try {
+      const res = await fetch(`${API}/api/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jql: "assignee = currentUser() AND statusCategory != Done ORDER BY updated ASC",
+          maxResults: 100,
+          fields: ["summary", "status", "priority", "updated", "project", "comment"]
+        })
+      });
+
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.errorMessages?.[0] || e.error || `Server error: HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (!data.issues) throw new Error("Unexpected response from server.");
+
+      allTasks = data.issues.map(i => {
+        const cmts = i.fields.comment?.comments || [];
+        commentCache[i.key] = cmts.map(c => ({
+          author: c.author?.displayName || "Unknown",
+          created: c.created,
+          text: adf(c.body)
+        }));
+        return {
+          key: i.key,
+          summary: i.fields.summary,
+          status: i.fields.status?.name || "Unknown",
+          priority: i.fields.priority?.name || null,
+          updated: i.fields.updated,
+          project: i.fields.project?.name || i.fields.project?.key || "—",
+          commentCount: cmts.length,
+          lastComment: cmts.length > 0 ? adf(cmts[cmts.length-1].body) : null
+        };
+      });
+
+      filteredTasks = [...allTasks];
+      const projs = [...new Set(allTasks.map(t => t.project))].sort();
+      document.getElementById("projectFilter").innerHTML =
+        '<option value="">All projects</option>' + projs.map(p => `<option value="${p}">${p}</option>`).join("");
+      applyFilters();
+      updateMetrics(allTasks);
+      document.getElementById("lastUpdated").textContent = "Last refreshed: " + new Date().toLocaleTimeString();
+      document.getElementById("statusLine").textContent = "Harshk@zenoti.com · zenoti.atlassian.net";
+
+    } catch(e) {
+      document.getElementById("tableContainer").innerHTML =
+        `<div class="state"><div class="icon">⚠️</div><p><strong>Could not load tasks.</strong><br><br>${e.message}</p></div>`;
+      document.getElementById("statusLine").textContent = "Connection error";
+    }
+  }
+
+  async function sendEmail() {
+    const stale = filteredTasks.filter(t => days(t.updated) >= 3);
+    if (!stale.length) { showToast("No stale tasks in the current view!", "success"); return; }
+
+    const btn = document.getElementById("notifyBtn");
+    btn.disabled = true; btn.textContent = "Sending...";
+
+    const subject = `Jira reminder — ${stale.length} task${stale.length > 1 ? "s" : ""} need${stale.length === 1 ? "s" : ""} updating`;
+    const body = `Hi Harsh,\n\nYou have ${stale.length} Jira task${stale.length > 1 ? "s" : ""} not updated in 3+ days:\n\n` +
+      stale.map(t => {
+        const cached = commentCache[t.key] || [];
+        const last = cached.length > 0 ? cached[cached.length-1] : null;
+        return `• ${t.key} — ${t.summary}\n  Status: ${t.status} | ${days(t.updated)}d since last update\n  Last comment: ${last ? last.author + ": " + last.text.slice(0, 80) : "No comments"}\n  Link: https://zenoti.atlassian.net/browse/${t.key}`;
+      }).join("\n\n") + `\n\nPlease update these tasks.`;
+
+    window.location.href = `mailto:Harshk@zenoti.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    showToast("Opening email client...", "success");
+    btn.disabled = false; btn.textContent = "✉ Email stale tasks";
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById("toast");
+    t.textContent = msg; t.className = "toast " + type;
+    clearTimeout(t._t); t._t = setTimeout(() => { t.className = "toast"; }, 5000);
+  }
+
+  loadTasks();
+</script>
+</body>
+</html>
